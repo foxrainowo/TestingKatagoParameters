@@ -9,7 +9,7 @@ import numpy as np
 import scipy.stats
 import scipy.special
 from abc import abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from sgfmill import sgf
 from colorama import init, Style
 from typing import List, Dict, Tuple, Sequence
@@ -509,7 +509,6 @@ def compute_elos(
         for d in data:
             d.accum_dloglikelihood_dstrength(strengths, dloglikelihood_dstrength)
             d.accum_d2loglikelihood_dstrength2(strengths, d2loglikelihood_dstrength2)
-
         ascent = -np.linalg.solve(d2loglikelihood_dstrength2,dloglikelihood_dstrength)
         return ascent
 
@@ -600,6 +599,11 @@ class GameRecord:
     black_time : float = 0
     white_time : float = 0
 
+    black_moves_each: list = field(default_factory=list)
+    white_moves_each: list = field(default_factory=list)
+    black_visits_percentage: list = field(default_factory=list)
+    white_visits_percentage: list = field(default_factory=list)
+
 class GameResultSummary:
 
     def __init__(
@@ -633,6 +637,10 @@ class GameResultSummary:
         self.results[(record.player1, record.player2)].white_visits += record.white_visits
         self.results[(record.player1, record.player2)].black_time += record.black_time
         self.results[(record.player1, record.player2)].white_time += record.white_time
+        self.results[(record.player1, record.player2)].black_moves_each += record.black_moves_each
+        self.results[(record.player1, record.player2)].white_moves_each += record.white_moves_each
+        self.results[(record.player1, record.player2)].black_visits_percentage += record.black_visits_percentage
+        self.results[(record.player1, record.player2)].white_visits_percentage += record.white_visits_percentage
         self._game_count += record.win + record.loss + record.draw
 
     def clear(self):
@@ -654,17 +662,17 @@ class GameResultSummary:
         print(color_256(226) + "【Elos with +/-",standard_deviation,"approx standard error】" + Style.RESET_ALL)
         print(elo_info)
 
-        print(color_256(213) + "【Likelihood of superiority between each networks】" + Style.RESET_ALL)
-        los_matrix = []
-        for player in real_players:
-            los_row = []
-            for player2 in real_players:
-                los = elo_info.get_approx_likelihood_of_superiority(player,player2)
-                los_row.append(f"{los*100:.1f}")
-            los_matrix.append(los_row)
-        self._print_matrix(real_players,los_matrix)
-            
         try:
+            print(color_256(213) + "【Likelihood of superiority between each networks】" + Style.RESET_ALL)
+            los_matrix = []
+            for player in real_players:
+                los_row = []
+                for player2 in real_players:
+                    los = elo_info.get_approx_likelihood_of_superiority(player,player2)
+                    los_row.append(f"{los*100:.1f}")
+                los_matrix.append(los_row)
+            self._print_matrix(real_players,los_matrix)
+
             surprise_matrix = []
             for pla1 in real_players:
                 row = []
@@ -717,7 +725,7 @@ class GameResultSummary:
         else:
             pass
 
-        print(color_256(35) + "【Average number of moves per game with other players】" + Style.RESET_ALL)
+        print(color_256(35) + "【Average number of moves and dispersion of moves】" + Style.RESET_ALL)
         result_matrix = []
         for pla1 in real_players:
             row = []
@@ -728,12 +736,14 @@ class GameResultSummary:
                 else:
                     pla1_pla2 = self.results[(pla1, pla2)] if (pla1, pla2) in self.results else GameRecord(pla1,pla2)
                     pla2_pla1 = self.results[(pla2, pla1)] if (pla2, pla1) in self.results else GameRecord(pla2,pla1)
-                    moves = pla1_pla2.black_moves + pla2_pla1.white_moves
+                    moves = 2 * (pla1_pla2.black_moves + pla2_pla1.white_moves)
+                    moves_each = (pla1_pla2.black_moves_each + pla2_pla1.white_moves_each)
                     total = pla1_pla2.win + pla2_pla1.win + pla1_pla2.loss + pla2_pla1.loss + pla1_pla2.draw + pla2_pla1.draw
+                    avg_moves = moves/total
                     if total <= 0:
                         row.append("-")
                     else:
-                        row.append(f"{2*moves/total:.2f}")
+                        row.append(f"{avg_moves:.0f}/{np.var(moves_each):.0f}")
             result_matrix.append(row)
         self._print_matrix(real_players,result_matrix)
 
@@ -763,7 +773,8 @@ class GameResultSummary:
                             row.append("0.0%")
                         else:
                             row.append(f"{white_wins/win*100:.1f}%")
-                Average_WHITE_winrate = (Total_White_wins/Total_Win*100)
+                if (Total_Win != 0):
+                    Average_WHITE_winrate = (Total_White_wins/Total_Win*100)
             result_matrix.append(row)
         print(color_256(39) + "【Percentage of White in winning games | Average:" + f"{Average_WHITE_winrate:.2f}" + "】" + Style.RESET_ALL)
         self._print_matrix(real_players,result_matrix)
@@ -783,14 +794,21 @@ class GameResultSummary:
                         pla1_pla2 = self.results[(pla1, pla2)] if (pla1, pla2) in self.results else GameRecord(pla1,pla2)
                         pla2_pla1 = self.results[(pla2, pla1)] if (pla2, pla1) in self.results else GameRecord(pla2,pla1)
                         visits = pla1_pla2.black_visits + pla2_pla1.white_visits
+                        visits_percentage = pla1_pla2.black_visits_percentage + pla2_pla1.white_visits_percentage
                         moves = pla1_pla2.black_moves + pla2_pla1.white_moves
                         total = pla1_pla2.win + pla2_pla1.win + pla1_pla2.loss + pla2_pla1.loss + pla1_pla2.draw + pla2_pla1.draw
                         if total <= 0:
                             row.append("-")
                         else:
-                            row.append(f"{visits/moves:.1f}")
+                            if (visits_percentage):
+                                row.append(f"{visits/moves:.0f}/{np.mean(visits_percentage):.1f}")
+                            else:
+                                row.append(f"{visits/moves:.0f}")
                 result_matrix.append(row)
-            print(color_256(139) + "【Average visits per move - higher means more tree reuse】" + Style.RESET_ALL)
+            if (visits_percentage):
+                print(color_256(139) + "【Average visits per move and reuse rate】" + Style.RESET_ALL)
+            else:
+                print(color_256(139) + "【Average visits per move】" + Style.RESET_ALL)
             self._print_matrix(real_players,result_matrix)
             
         except:
@@ -889,16 +907,16 @@ class GameResultSummary:
         # Let user to input the match config
         if (create == "V" or create == "v"):
             Tester = input("Tested by ")
-            Visits = input("Visits:")
-            rule = input("Rule:")
+            Visits = input("Visits: ")
+            rule = input("Rule: ")
         elif (create == "P" or create == "p"):
             Tester = input("Tested by ")
-            playouts = input("Playouts:")
-            rule = input("Rule:")
+            playouts = input("Playouts: ")
+            rule = input("Rule: ")
         elif (create == "T" or create == "t"):
             Tester = input("Tested by ")
-            Times = input("Times:")
-            rule = input("Rule:")
+            Times = input("Times: ")
+            rule = input("Rule: ")
 
     def _add_new_games_to_result_dict(self, new_game_files, source):
         idx = 0
@@ -1015,7 +1033,11 @@ class GameResultSummary:
                     pla2_pla1 = self.results[(pla2, pla1)] if (pla2, pla1) in self.results else GameRecord(pla2,pla1)
                     win = pla1_pla2.win + pla2_pla1.loss + 0.5 * (pla1_pla2.draw + pla2_pla1.draw)
                     total = pla1_pla2.win + pla2_pla1.win + pla1_pla2.loss + pla2_pla1.loss + pla1_pla2.draw + pla2_pla1.draw
-                    row.append(f"{win:.{win_len}f}/{total:<{total_len}}")
+                    if (total == 0):
+                        row.append("-"+" "*(total_len))
+                    else:
+                        row.append(f"{win:.{win_len}f}/{total:<{total_len}}")
+                    
             result_matrix.append(row)
         self._print_matrix(pla_names,result_matrix)
 
@@ -1029,15 +1051,19 @@ class GameResultSummary:
                     pla2_pla1 = self.results[(pla2, pla1)] if (pla2, pla1) in self.results else GameRecord(pla2,pla1)
                     win = pla1_pla2.win + pla2_pla1.loss + 0.5 * (pla1_pla2.draw + pla2_pla1.draw)
                     total = pla1_pla2.win + pla2_pla1.win + pla1_pla2.loss + pla2_pla1.loss + pla1_pla2.draw + pla2_pla1.draw
-                    winrate = win/total*100
-                    if ( winrate <= 1) | (winrate >= 99):
-                        ELO = f".INF"
-                        pass
-                    else:
-                        ELO = f"{400*math.log10((winrate)/(100-winrate)):.0f}"
+                    if (total != 0):
+                        winrate = win/total*100
+                        if ( winrate <= 1) | (winrate >= 99):
+                            ELO = f".INF"
+                            pass
+                        else:
+                            ELO = f"{400*math.log10((winrate)/(100-winrate)):.0f}"
                         all_ELO.append(ELO)
                     # print(win,total,winrate,ELO)
+        try:
             total_len_ELO = max(len(str(long_ELO)) for long_ELO in all_ELO)
+        except:
+            total_len_ELO = 3
         # print(all_ELO,total_len_ELO)
 
         for pla1 in pla_names:
@@ -1053,19 +1079,19 @@ class GameResultSummary:
                     total = pla1_pla2.win + pla2_pla1.win + pla1_pla2.loss + pla2_pla1.loss + pla1_pla2.draw + pla2_pla1.draw
                     if (total != 0):
                         winrate = win/total*100
+                        if ( winrate <= 1 ):
+                            row.append(f"{winrate:.1f}%/-INF"+" "*(total_len_ELO-4))
+                        elif ( winrate >= 99 ):
+                            row.append(f"{winrate:.1f}%/+INF"+" "*(total_len_ELO-4))
+                        elif ( winrate == 50 ):
+                            row.append(f"{winrate:.1f}%/"+" "*(total_len_ELO-1)+"0")
+                        else:
+                            sign = "+" if winrate >= 50 else "-"
+                            fiex = 1 if winrate >= 50 else -1
+                            elo = f"{fiex*400*math.log10((winrate)/(100-winrate)):.0f}"
+                            row.append(f"{winrate:.1f}%/{sign}{elo:>{total_len_ELO-1}}")
                     else:
-                        pass
-                    if ( winrate <= 1 ):
-                        row.append(f"{winrate:.1f}%/-INF"+" "*(total_len_ELO-4))
-                    elif ( winrate >= 99 ):
-                        row.append(f"{winrate:.1f}%/+INF"+" "*(total_len_ELO-4))
-                    elif ( winrate == 50 ):
-                        row.append(f"{winrate:.1f}%/"+" "*(total_len_ELO-1)+"0")
-                    else:
-                        sign = "+" if winrate >= 50 else "-"
-                        fiex = 1 if winrate >= 50 else -1
-                        elo = f"{fiex*400*math.log10((winrate)/(100-winrate)):.0f}"
-                        row.append(f"{winrate:.1f}%/{sign}{elo:>{total_len_ELO-1}}")
+                        row.append("-"+" "*(total_len_ELO))
             result_matrix.append(row)
         print(color_256(214) + "【Winrate by row player against column player】" + Style.RESET_ALL)
         self._print_matrix(pla_names,result_matrix)
@@ -1159,14 +1185,16 @@ class GoGameResultSummary(GameResultSummary):
             nodes = game.get_main_sequence()
         except ValueError:
             print('\033[91m'+f"A sgf string is damaged in {debug_source}, and its record has been skipped!"+ '\x1b[0m')
-            return
         pla_black = game.get_player_name('b')
         pla_white = game.get_player_name('w')
         if (game.get_handicap() is not None) or game.get_komi() < 5.5 or game.get_komi() > 7.5:
             self._should_warn_handicap_komi = True
 
         game_record = GameRecord(player1=pla_black,player2=pla_white)
+
         # Calculate how many move in a game
+        black_visits_each = []
+        white_visits_each = []
         total_moves = 0
         breakpoint = 0
         visits = 0
@@ -1178,7 +1206,7 @@ class GoGameResultSummary(GameResultSummary):
             color, move = move_result
             if ((move is None) | (color is None)) :
                 breakpoint += 1
-            if (total_moves !=0 & breakpoint <= 2):
+            if (total_moves !=0 & breakpoint < 2):
                 if (total_moves %2 == 1):
                     game_record.black_moves += 1
                 elif (total_moves %2 == 0):
@@ -1189,6 +1217,7 @@ class GoGameResultSummary(GameResultSummary):
             # print(color, move)
             # print(game_record.black_moves, game_record.white_moves)
 
+            
             try:
                 comment = node.get("C")
                 Visit = visit_pattern.search(comment)
@@ -1196,13 +1225,13 @@ class GoGameResultSummary(GameResultSummary):
                     visits = int(Visit.group(1))
                     if (total_moves %2 == 1):
                         game_record.black_visits += visits
+                        black_visits_each.append(visits)
                     elif (total_moves %2 == 0):
                         game_record.white_visits += visits
+                        white_visits_each.append(visits)
             except:
                 pass
-
             total_moves = total_moves + 1
-
             # ====== For debug ======
             # print(comment)
             # print(visits)
@@ -1218,6 +1247,63 @@ class GoGameResultSummary(GameResultSummary):
                 white_time = float(WTime.group(1))
                 game_record.white_time = white_time
                 # print(game_record.white_time)
+
+        game_record.black_moves_each.append(game_record.black_moves)
+        game_record.white_moves_each.append(game_record.white_moves)
+        # print(game_record.black_moves_each,game_record.white_moves_each)
+        # print(black_visits_each)
+        # print(white_visits_each)
+        
+        if (black_visits_each[1]>=1.06*black_visits_each[0]):
+            loop = 1
+            all_gap =[]
+            all_percentage = []
+            for b in black_visits_each:
+                try:
+                    loop_each = black_visits_each[loop]
+                    gap_each = (black_visits_each[loop] - black_visits_each[0])
+                    # percentage_each = round(100 * gap_each / black_visits_each[loop - 1], 3)
+                    # print(f"{loop_each} {gap_each} {percentage_each}") 
+                    # all_percentage.append(percentage_each)
+                    all_gap.append(gap_each)
+                    loop += 1
+                except:
+                    pass
+            # median_all_percentage = float(np.median(all_percentage))
+            game_record.black_visits_percentage.append(100 * sum(all_gap)/sum(black_visits_each))
+
+            # print(all_percentage)
+            # print(round(np.mean(all_percentage), 3))
+            # print(np.median(all_percentage))
+            # print(sum(black_visits_each),sum(all_gap),sum(all_gap)/sum(black_visits_each))
+            # print(game_record.black_visits_percentage)
+        
+
+        if (white_visits_each[1]>=1.06*white_visits_each[0]):
+            loop = 1
+            all_gap =[]
+            all_percentage = []
+            for w in white_visits_each:
+                try:
+                    loop_each = white_visits_each[loop]
+                    gap_each = (white_visits_each[loop] - white_visits_each[0])
+                    # percentage_each = round(100 * gap_each / white_visits_each[loop - 1], 3)
+                    # print(f"{loop_each} {gap_each} {percentage_each}") 
+                    # all_percentage.append(percentage_each)
+                    all_gap.append(gap_each)
+                    loop += 1
+                except:
+                    pass
+            # median_all_percentage = float(np.median(all_percentage))
+            game_record.white_visits_percentage.append(100 * sum(all_gap)/sum(white_visits_each))
+            
+            # print(all_percentage)
+            # print(round(np.mean(all_percentage), 3))
+            # print(np.median(all_percentage))
+            # print(sum(white_visits_each),sum(all_gap),sum(all_gap)/sum(white_visits_each))
+            # print(game_record.white_visits_percentage"\n")      
+
+        # print(game_record.black_moves)
 
         if (winner == 'b'):
             game_record.win += 1
