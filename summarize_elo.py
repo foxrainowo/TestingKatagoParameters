@@ -673,6 +673,7 @@ class GameResultSummary:
                 los_matrix.append(los_row)
             self._print_matrix(real_players,los_matrix)
 
+            players_count = 0
             surprise_matrix = []
             for pla1 in real_players:
                 row = []
@@ -694,36 +695,14 @@ class GameResultSummary:
         # print("Log10odds surprise matrix given the maximum-likelihood Elos:")
         # print("E.g. +3.0 means a 1:1000 unexpected good performance by row vs column.")
         # print("E.g. -4.0 means a 1:10000 unexpected bad performance by row vs column.")
-            print(color_256(118) + "【Rock/paper/scissors or Elo is not a good model for the data】" + Style.RESET_ALL)
-            self._print_matrix(real_players,surprise_matrix)
+            for player_number in real_players:
+                players_count += 1
+            if (players_count > 2):
+                print(color_256(112) + "【Rock/paper/scissors or Elo is not a good model for the data】" + Style.RESET_ALL)
+                self._print_matrix(real_players,surprise_matrix)
         except:
             pass
 
-        result_matrix = []
-        have_draw = []
-        for pla1 in real_players:
-            row = []
-            for pla2 in real_players:
-                if (pla1 == pla2):
-                    row.append("-")
-                    continue
-                else:
-                    pla1_pla2 = self.results[(pla1, pla2)] if (pla1, pla2) in self.results else GameRecord(pla1,pla2)
-                    pla2_pla1 = self.results[(pla2, pla1)] if (pla2, pla1) in self.results else GameRecord(pla2,pla1)
-                    draw = pla1_pla2.draw + pla2_pla1.draw
-                    total = pla1_pla2.win + pla2_pla1.win + pla1_pla2.loss + pla2_pla1.loss + pla1_pla2.draw + pla2_pla1.draw
-                    if total <= 0:
-                        row.append("-")
-                    else:
-                        row.append(f"{draw}/{draw/total*100:.1f}%")
-                    have_draw.append(draw)
-            result_matrix.append(row)
-        if any(DRAW != 0 for DRAW in have_draw):
-            print(color_256(105) + "【Total of draws and invalid games with other players】" + Style.RESET_ALL)
-            self._print_matrix(real_players,result_matrix)
-            # print(have_draw)
-        else:
-            pass
 
         print(color_256(35) + "【Average number of moves and dispersion of moves】" + Style.RESET_ALL)
         result_matrix = []
@@ -747,7 +726,7 @@ class GameResultSummary:
             result_matrix.append(row)
         self._print_matrix(real_players,result_matrix)
 
-        # try:
+        
         Average_WHITE_winrate = 0
         Total_White_wins = 0
         Total_Win = 0
@@ -778,9 +757,33 @@ class GameResultSummary:
             result_matrix.append(row)
         print(color_256(39) + "【Percentage of White in winning games | Average:" + f"{Average_WHITE_winrate:.2f}" + "】" + Style.RESET_ALL)
         self._print_matrix(real_players,result_matrix)
-            
-        # except:
-        #     pass
+
+
+        result_matrix = []
+        have_draw = []
+        for pla1 in real_players:
+            row = []
+            for pla2 in real_players:
+                if (pla1 == pla2):
+                    row.append("-")
+                    continue
+                else:
+                    pla1_pla2 = self.results[(pla1, pla2)] if (pla1, pla2) in self.results else GameRecord(pla1,pla2)
+                    pla2_pla1 = self.results[(pla2, pla1)] if (pla2, pla1) in self.results else GameRecord(pla2,pla1)
+                    draw = pla1_pla2.draw + pla2_pla1.draw
+                    total = pla1_pla2.win + pla2_pla1.win + pla1_pla2.loss + pla2_pla1.loss + pla1_pla2.draw + pla2_pla1.draw
+                    if total <= 0:
+                        row.append("-")
+                    else:
+                        row.append(f"{draw}/{draw/total*100:.1f}%")
+                    have_draw.append(draw)
+            result_matrix.append(row)
+        if any(DRAW != 0 for DRAW in have_draw):
+            print(color_256(105) + "【Total of draws and invalid games with other players】" + Style.RESET_ALL)
+            self._print_matrix(real_players,result_matrix)
+            # print(have_draw)
+        else:
+            pass
 
         try:
             result_matrix = []
@@ -801,14 +804,14 @@ class GameResultSummary:
                             row.append("-")
                         else:
                             if (visits_percentage):
-                                row.append(f"{visits/moves:.0f}/{np.mean(visits_percentage):.1f}")
+                                row.append(f"{visits/moves:.0f}/{np.mean(visits_percentage):.2f}")
                             else:
                                 row.append(f"{visits/moves:.0f}")
                 result_matrix.append(row)
             if (visits_percentage):
-                print(color_256(139) + "【Average visits per move and reuse rate】" + Style.RESET_ALL)
+                print(color_256(183) + "【Average visits per move and reuse rate】" + Style.RESET_ALL)
             else:
-                print(color_256(139) + "【Average visits per move】" + Style.RESET_ALL)
+                print(color_256(183) + "【Average visits per move】" + Style.RESET_ALL)
             self._print_matrix(real_players,result_matrix)
             
         except:
@@ -831,7 +834,7 @@ class GameResultSummary:
             max_name_len = max(len(str(name)) for name in real_players) if real_players else 0
             indent = max_name_len // 2
             sorted_results = sorted(results, key=lambda x: x[1])
-            print(color_256(179) + "【Average time per move but may not be accurate due to devices】" + Style.RESET_ALL)
+            print(color_256(224) + "【Average time per move but may not be accurate due to devices】" + Style.RESET_ALL)
             print(f"{"Sort_by_strength":>{indent+10}}{" "*(max_name_len-5)}{"Sort_by_time"}")
             for orig, sorted_ in zip_longest(results, sorted_results, fillvalue=("", 0)):
                 left_str = f"{str(orig[0]):>{max_name_len}}: {orig[1]:.2f}" if orig[0] else ""
