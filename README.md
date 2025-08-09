@@ -18,7 +18,7 @@ Download [summarize_elo.py](https://github.com/foxrainowo/TestingKatagoParameter
 I would collect *Game Records(SGFs)* and *Networks(bin.gz)* from public channels or You can send it to me.
 
 **Standard requirements:**
-- Fix a single board size, e.g., 19×19, 9×9.
+- Fix a single board size, e.g. 19×19, 9×9.
 - Fix the number of playouts **more than 50**.
-- Fix a single game rule.
+- Fix a single game rule. The best rule is KM[7]RU[koPOSITIONALscoreAREAtaxNONEsui0button1]
 - More than 1000 games with each opponent.
