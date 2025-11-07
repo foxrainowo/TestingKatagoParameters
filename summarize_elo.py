@@ -704,7 +704,7 @@ class GameResultSummary:
             pass
 
 
-        print(color_256(35) + "【Average number of moves and dispersion of moves】" + Style.RESET_ALL)
+        print(color_256(35) + "【Average number/dispersion of move】" + Style.RESET_ALL)
         result_matrix = []
         for pla1 in real_players:
             row = []
@@ -718,10 +718,10 @@ class GameResultSummary:
                     moves = 2 * (pla1_pla2.black_moves + pla2_pla1.white_moves)
                     moves_each = (pla1_pla2.black_moves_each + pla2_pla1.white_moves_each)
                     total = pla1_pla2.win + pla2_pla1.win + pla1_pla2.loss + pla2_pla1.loss + pla1_pla2.draw + pla2_pla1.draw
-                    avg_moves = moves/total
                     if total <= 0:
                         row.append("-")
                     else:
+                        avg_moves = moves/total
                         row.append(f"{avg_moves:.0f}/{np.var(moves_each):.0f}")
             result_matrix.append(row)
         self._print_matrix(real_players,result_matrix)
@@ -809,10 +809,11 @@ class GameResultSummary:
                                 row.append(f"{visits/moves:.0f}")
                 result_matrix.append(row)
             if (visits_percentage):
-                print(color_256(183) + "【Average visits per move and reuse rate】" + Style.RESET_ALL)
-            else:
-                print(color_256(183) + "【Average visits per move】" + Style.RESET_ALL)
-            self._print_matrix(real_players,result_matrix)
+                print(color_256(183) + "【Average visits and reuse rate per move】" + Style.RESET_ALL)
+                self._print_matrix(real_players,result_matrix)
+            #else:
+                #print(color_256(183) + "【Visits per move】" + Style.RESET_ALL)
+            
             
         except:
             pass
@@ -1080,11 +1081,11 @@ class GameResultSummary:
                     pla2_pla1 = self.results[(pla2, pla1)] if (pla2, pla1) in self.results else GameRecord(pla2,pla1)
                     win = pla1_pla2.win + pla2_pla1.loss + 0.5 * (pla1_pla2.draw + pla2_pla1.draw)
                     total = pla1_pla2.win + pla2_pla1.win + pla1_pla2.loss + pla2_pla1.loss + pla1_pla2.draw + pla2_pla1.draw
-                    if (total != 0):
+                    if (total > 2):
                         winrate = win/total*100
-                        if ( winrate <= 1 ):
+                        if ( winrate <= 0.2 ):
                             row.append(f"{winrate:.1f}%/-INF"+" "*(total_len_ELO-4))
-                        elif ( winrate >= 99 ):
+                        elif ( winrate >= 99.8 ):
                             row.append(f"{winrate:.1f}%/+INF"+" "*(total_len_ELO-4))
                         elif ( winrate == 50 ):
                             row.append(f"{winrate:.1f}%/"+" "*(total_len_ELO-1)+"0")
@@ -1096,7 +1097,7 @@ class GameResultSummary:
                     else:
                         row.append("-"+" "*(total_len_ELO))
             result_matrix.append(row)
-        print(color_256(214) + "【Winrate by row player against column player】" + Style.RESET_ALL)
+        print(color_256(214) + "【Winrate/Elo by row player against column player】" + Style.RESET_ALL)
         self._print_matrix(pla_names,result_matrix)
 
     def new_method(self):
@@ -1406,4 +1407,3 @@ if __name__ == "__main__":
         game_result_summary.add_games_from_file_or_dir(input_file_or_dir, recursive=recursive)
 
     game_result_summary.print_elos()
-    
